@@ -1,6 +1,3 @@
-ibaby-script
-============
-
 Python script to convert ibaby Android HTML data to CSV. 
 
 About
