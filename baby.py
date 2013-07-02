@@ -1,4 +1,3 @@
-
 import xml.sax
 import datetime
 
@@ -17,10 +16,10 @@ class XmlHandler(xml.sax.handler.ContentHandler):
 
     times = []
     for meridiem in ['AM', 'PM']:
-    	for hour in range(1, 13):
-		  	for minute in ['00', '10', '20', '30', '40', '50']:
-			  	time = u'%02d:%s %s' % (hour, minute, meridiem)
-			  	times.append(time)
+      for hour in range(1, 13):
+        for minute in ['00', '10', '20', '30', '40', '50']:
+          time = u'%02d:%s %s' % (hour, minute, meridiem)
+          times.append(time)
     return times
 
   def startElement(self, name, attrs):
@@ -43,14 +42,14 @@ class XmlHandler(xml.sax.handler.ContentHandler):
       if len(length) == 1:
         length = '10min'
       else:
-	      length = length[1]
+        length = length[1]
       babyActivity = ''
       minutes = 0
 
       if activity.startswith('Sleep'):
-		    babyActivity = 'Sleep'
-		    length = length.split()
-		    minutes = self._getHourMinute(length)
+        babyActivity = 'Sleep'
+        length = length.split()
+        minutes = self._getHourMinute(length)
 
       elif activity.startswith('Nurse'):
         babyActivity = 'Nurse'
@@ -110,16 +109,16 @@ class XmlHandler(xml.sax.handler.ContentHandler):
     hour = minute = 0
 
     if len(length) > 1:
-			hour = int(length[0].strip('hr '))
-			minute = int(length[1].strip('min '))
+      hour = int(length[0].strip('hr '))
+      minute = int(length[1].strip('min '))
 
     else:
       if length[0].endswith('min'):
         hour = 0
         minute = int(length[0].strip('min '))
       else:
-	      hour = int(length[0].strip('hr '))
-	      minute = 0
+        hour = int(length[0].strip('hr '))
+        minute = 0
 
     minutes = 60 * hour + minute
     return minutes
@@ -149,4 +148,4 @@ class XmlHandler(xml.sax.handler.ContentHandler):
 
 
 if __name__ == '__main__':
-	xml.sax.parse('input.html', XmlHandler())
+  xml.sax.parse('input.html', XmlHandler())
