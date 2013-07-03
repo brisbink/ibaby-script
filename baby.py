@@ -15,11 +15,10 @@ class XmlHandler(xml.sax.handler.ContentHandler):
   def _initTimes(self):
 
     times = []
-    for meridiem in ['AM', 'PM']:
-      for hour in range(1, 13):
-        for minute in ['00', '10', '20', '30', '40', '50']:
-          time = u'%02d:%s %s' % (hour, minute, meridiem)
-          times.append(time)
+    for hour in range(0, 24):
+      for minute in range(0, 60, 10):
+        time = datetime.time(hour, minute)
+        times.append(time)
     return times
 
   def startElement(self, name, attrs):
@@ -33,10 +32,9 @@ class XmlHandler(xml.sax.handler.ContentHandler):
   def characters(self, content):
 
     if self.h3 == True:
-      self.currentDate = content
+      self.currentDate = datetime.datetime.strptime(content, '%Y-%m-%d')
 
     if self.li == True:
-      startTime = content[:8]
       activity = content[8:].strip()
       length = activity.split(' ', 1)
       if len(length) == 1:
@@ -60,49 +58,28 @@ class XmlHandler(xml.sax.handler.ContentHandler):
           length = length[:-1]
         minutes = self._getHourMinute(length)
 
-      # use the start time to find the first time in the times dict
-      splitTime = startTime.split()
-      meridiem = splitTime[1]
-
-      # round time to the nearest 10 minutes
-      startTime = splitTime[0]
-      splitTime = startTime.split(':')
-      hour = int(splitTime[0])
-      minute = int(10 * round(float(splitTime[1])/10))
-      date, hour, minute, meridiem = self._adjustStartTime(
-          self.currentDate, hour, minute, meridiem)
-      self._addTime(date, hour, minute, meridiem, babyActivity)
+      # get the start time and round to the nearest 10 minutes
+      date = datetime.datetime.strptime(
+          '%s %s' % (self.currentDate.strftime('%Y-%m-%d'),
+          content[:8]),
+          '%Y-%m-%d %I:%M %p')
+      date += datetime.timedelta(minutes=5)
+      date -= datetime.timedelta(minutes=date.minute % 10, seconds=date.second)
+      self._addTime(date, babyActivity)
 
       # use the minutes to fill in subsequent times 
       for i in range(10, minutes, 10):
-        minute += 10
-        date, hour, minute, meridiem = self._adjustStartTime(
-            date, hour, minute, meridiem)
-        self._addTime(date, hour, minute, meridiem, babyActivity)
+        date = date + datetime.timedelta(minutes=10)
+        self._addTime(date, babyActivity)
 
-  def _adjustStartTime(self, date, hour, minute, meridiem):
+  def _addTime(self, date, activity):
 
-    if minute >= 60:
-      minute = 0
-      hour += 1
-      if hour > 12:
-        hour = 1
-      if hour == 12 and minute == 0:
-        if meridiem == 'PM':
-          meridiem = 'AM'
-          date = datetime.datetime.strptime(date, '%Y-%m-%d')
-          date = date + datetime.timedelta(days=1)
-          date = date.strftime('%Y-%m-%d')
-        else: meridiem = 'PM'
-    return date, hour, minute, meridiem
-
-  def _addTime(self, date, hour, minute, meridiem, activity):
-
-    time = '%02d:%02d %s' % (hour, minute, meridiem)
-    if not self.dates.get(date, None):
-      self.dates[date] = {}
-    if not self.dates[date].get(time, None):
-      self.dates[date][time] = activity
+    formattedDate = date.strftime('%Y-%m-%d')
+    if not self.dates.get(formattedDate, None):
+      self.dates[formattedDate] = {}
+    formattedTime = date.strftime('%H:%M')
+    if not self.dates[formattedDate].get(formattedTime, None):
+      self.dates[formattedDate][formattedTime] = activity
 
   def _getHourMinute(self, length):
 
@@ -139,11 +116,12 @@ class XmlHandler(xml.sax.handler.ContentHandler):
       output.write(','.join(dates))
       output.write('\n')
       for time in self.allTimes:
-        output.write(time)
+        formattedTime = time.strftime('%H:%M')
+        output.write(formattedTime)
         for date in dates:
           output.write(',')
-          if self.dates[date].get(time, None):
-            output.write(self.dates[date][time])
+          if self.dates[date].get(formattedTime, None):
+            output.write(self.dates[date][formattedTime])
         output.write('\n')
 
 
