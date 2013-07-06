@@ -14,9 +14,18 @@ to fill in all rows with the activity for that time. For example:
 00:20:00,Nurse,...<br>
 ...
 
-NOTE: This script *only* uses the nursing and sleep data.
+At the bottom of the CSV is a set of data: ave time nursing, ave time between nursing,
+and the total time nursing. For example:
+
+,2013-07-06,2013-07-05,2013-07-04...
+Time nursing,2.350000,6.216667,7.316667...
+Ave time nursing,0.335714,0.444048,0.522619...
+Ave time between nursing,1.083333,1.809524,1.675000...
 
 The CSV file is saved as output.csv and can be imported into your favorite Spreadsheet software for analysis.
+
+NOTE: This script *only* uses the nursing and sleep iBaby data.
+
 
 To run
 ======
