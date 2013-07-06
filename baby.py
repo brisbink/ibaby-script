@@ -1,6 +1,8 @@
 import xml.sax
 import datetime
 
+TIME_INCREMENT = 10
+
 
 class XmlHandler(xml.sax.handler.ContentHandler):
 
@@ -11,12 +13,13 @@ class XmlHandler(xml.sax.handler.ContentHandler):
     self.currentDate = ''
     self.dates = {}
     self.allTimes = self._initTimes()
+    self.lastNurseTime = None
 
   def _initTimes(self):
 
     times = []
     for hour in range(0, 24):
-      for minute in range(0, 60, 10):
+      for minute in range(0, 60, TIME_INCREMENT):
         time = datetime.time(hour, minute)
         times.append(time)
     return times
@@ -38,9 +41,29 @@ class XmlHandler(xml.sax.handler.ContentHandler):
       activity = content[8:].strip()
       length = activity.split(' ', 1)
       if len(length) == 1:
-        length = '10min'
+        length = '%dmin' % TIME_INCREMENT
       else:
         length = length[1]
+
+      # get the start date and time and round to the nearest n minutes
+      date = datetime.datetime.strptime(
+          '%s %s' % (self.currentDate.strftime('%Y-%m-%d'),
+          content[:8]),
+          '%Y-%m-%d %I:%M %p')
+      roundedDate = date + datetime.timedelta(minutes=TIME_INCREMENT/2)
+      roundedDate -= datetime.timedelta(
+          minutes=roundedDate.minute % TIME_INCREMENT,
+          seconds=roundedDate.second)
+      formattedDate = roundedDate.strftime('%Y-%m-%d')
+      if not self.dates.get(formattedDate, None):
+        self.dates[formattedDate] = {
+            'Time nursing': 0,
+            'Time sleeping': 0,
+            'Number nursing': 0,
+            'Ave time between nursing': 0,
+            'Ave time nursing': 0
+        }
+
       babyActivity = ''
       minutes = 0
 
@@ -48,35 +71,36 @@ class XmlHandler(xml.sax.handler.ContentHandler):
         babyActivity = 'Sleep'
         length = length.split()
         minutes = self._getHourMinute(length)
+        self.dates[formattedDate]['Time sleeping'] += minutes / 60.0
 
       elif activity.startswith('Nurse'):
         babyActivity = 'Nurse'
         length = length.split()
         if len(length) == 1:
-          length = ['0', '10min']
+          length = ['0', '%dmin' % TIME_INCREMENT]
         else:
           length = length[:-1]
         minutes = self._getHourMinute(length)
+        self.dates[formattedDate]['Number nursing'] += 1
+        self.dates[formattedDate]['Time nursing'] += minutes / 60.0
+        self.dates[formattedDate]['Ave time nursing'] += minutes
+        if not self.lastNurseTime:
+          self.lastNurseTime = date
+        else:
+          diff = self.lastNurseTime - date
+          self.dates[formattedDate][
+              'Ave time between nursing'] += diff.total_seconds() / 60 / 60
+          self.lastNurseTime = date
 
-      # get the start time and round to the nearest 10 minutes
-      date = datetime.datetime.strptime(
-          '%s %s' % (self.currentDate.strftime('%Y-%m-%d'),
-          content[:8]),
-          '%Y-%m-%d %I:%M %p')
-      date += datetime.timedelta(minutes=5)
-      date -= datetime.timedelta(minutes=date.minute % 10, seconds=date.second)
-      self._addTime(date, babyActivity)
-
-      # use the minutes to fill in subsequent times 
-      for i in range(10, minutes, 10):
-        date = date + datetime.timedelta(minutes=10)
-        self._addTime(date, babyActivity)
+      # add activities to the correct date / time column / row
+      self._addTime(roundedDate, babyActivity)
+      for i in range(TIME_INCREMENT, minutes, TIME_INCREMENT):
+        roundedDate = roundedDate + datetime.timedelta(minutes=TIME_INCREMENT)
+        self._addTime(roundedDate, babyActivity)
 
   def _addTime(self, date, activity):
 
     formattedDate = date.strftime('%Y-%m-%d')
-    if not self.dates.get(formattedDate, None):
-      self.dates[formattedDate] = {}
     formattedTime = date.strftime('%H:%M')
     if not self.dates[formattedDate].get(formattedTime, None):
       self.dates[formattedDate][formattedTime] = activity
@@ -123,6 +147,31 @@ class XmlHandler(xml.sax.handler.ContentHandler):
           if self.dates[date].get(formattedTime, None):
             output.write(self.dates[date][formattedTime])
         output.write('\n')
+      output.write(',' * len(dates))
+      output.write('\n')
+      output.write(',' * len(dates))
+      output.write('\n')
+      output.write(',' * len(dates))
+      output.write('\n')
+      output.write(',')
+      output.write(','.join(dates))
+      output.write('\n')
+      output.write('Time nursing')
+      for date in dates:
+        output.write(',')
+        output.write('%f' % self.dates[date]['Time nursing'])
+      output.write('\n')
+      output.write('Ave time between nursing')
+      for date in dates:
+        output.write(',')
+        output.write('%f' % (self.dates[date][
+            'Ave time between nursing'] / self.dates[date]['Number nursing']))
+      output.write('\n')
+      output.write('Ave time nursing')
+      for date in dates:
+        output.write(',')
+        output.write('%f' % (self.dates[date][
+            'Ave time nursing'] / 60.0 / self.dates[date]['Number nursing']))
 
 
 if __name__ == '__main__':
